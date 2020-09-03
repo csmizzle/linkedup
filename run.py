@@ -1,8 +1,8 @@
 import sys
-from .scripts.arg_parser import parse_args
-from .scripts.tools import get_account, csv_writer
-from .scripts.cufflinx import Cufflinx
-
+from scripts.arg_parser import parse_args
+from scripts.tools import get_account, csv_writer
+from scripts.cufflinx import Cufflinx
+import traceback
 
 def main():
     # main function that will execute the cufflinx scraper
@@ -31,10 +31,13 @@ def main():
     cufflinx.linkedin_login(username=user_name,
                             password=pass_word,
                             url=login_url)
-    accounts = cufflinx.google_search_results(pages_to_be_scrapped, search_query)
-    results = cufflinx.scrape_profiles(accounts)
-    csv_writer(filename, results)
-    print('Done, check the results folder.')
+    try:
+        accounts = cufflinx.google_search_results(pages_to_be_scrapped, search_query)
+        results = cufflinx.scrape_profiles(accounts)
+        csv_writer(filename, results)
+        print('Done, check the results folder.')
+    except IndexError:
+        traceback.format_exc()
 
 
 if __name__ == "__main__":

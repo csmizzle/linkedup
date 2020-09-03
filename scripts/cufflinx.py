@@ -2,7 +2,8 @@ from time import sleep
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.action_chains import ActionChains
-from .tools import connect_driver
+from .tools import connect_driver, flatten
+from tqdm import tqdm
 
 
 class Cufflinx:
@@ -72,18 +73,18 @@ class Cufflinx:
         pages = page_num
         list_of_links = []
         for p in range(pages):
-            next_page = self.driver.find_elements_by_class_name('pn')
+            next_page = self.driver.find_elements_by_id('pnnext')
             if len(next_page) > 1:
-                next_page = self.driver.find_elements_by_class_name('pn')[1]
+                next_page = self.driver.find_elements_by_id('pnnext')[1]
             else:
-                next_page = self.driver.find_elements_by_class_name('pn')[0]
+                next_page = self.driver.find_elements_by_id('pnnext')[0]
             elems = self.driver.find_elements_by_xpath("//a[@href]")
             links = [x.get_attribute("href") for x in elems
                      if str(x.get_attribute("href")).startswith("https://www.linkedin.com/in/")]
             list_of_links.append(links)
             sleep(3)
             next_page.click()
-        return list_of_links
+        return flatten(list_of_links)
 
     def scrape_profiles(self, list_of_links: list) -> list:
         # clean_links = []
@@ -93,8 +94,9 @@ class Cufflinx:
         #         if x.startswith('https://www.linkedin.com/in/'):
         #             clean_links.append(x)
         print('Scraping profiles...')
+        print(list_of_links)
         results = []
-        for url in list_of_links:
+        for url in tqdm(list_of_links):
             print('Scraping', str(url), '...')
             self.driver.get(url)
             current_link = self.driver.current_url
@@ -113,7 +115,7 @@ class Cufflinx:
             actions.move_to_element(element).perform()
             print('Rendering Java for', url, '...')
             sleep(5)
-            soup=BeautifulSoup(self.driver.page_source, features="lxml")
+            soup = BeautifulSoup(self.driver.page_source, features="lxml")
             try:
                 name = soup.find('title').text.split('|')[0].strip()
             except IndexError:
@@ -123,7 +125,7 @@ class Cufflinx:
             except IndexError:
                 company = 'No data'
             try:
-                job = soup.findAll("h2", {"class": "mt1 t-18 t-black t-normal"})[0].text.strip()
+                job = soup.findAll("h2", {"class": "mt1 t-18 t-black t-normal break-words"})[0].text.strip()
             except IndexError:
                 job = 'No data'
             try:
