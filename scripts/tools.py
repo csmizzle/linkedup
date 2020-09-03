@@ -64,6 +64,6 @@ def connect_driver(path):
 
 def csv_writer(file_name, results_list_of_lists):
     # point this at your results fold, be sure to use forward slashes
-    with open('./results/'+file_name+'.csv','w', errors='ignore', newline="") as f:
+    with open('./'+file_name+'.csv','w', errors='ignore', newline="") as f:
         w = csv.writer(f)
         w.writerows(results_list_of_lists)
