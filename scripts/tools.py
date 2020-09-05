@@ -44,20 +44,23 @@ def get_ua():
 
 
 def get_account():
+    """
+    TODO: Clean up and eventually remove this
+    :return:
+    """
     account_list = [
         ['chrissmith700@gmail.com', 'Hq4_7!lowbar'],  # add accounts here for login needed for
     ]
     account = random.choice(account_list)
-
-    return (account)
+    return account
 
 
 def connect_driver(path: str) -> webdriver.Chrome:
+    # connects selenium driver based on path provided
     useragent = get_ua()
     options = Options()
     options.add_argument(f'user-agent={useragent}')
     driver = webdriver.Chrome(path, chrome_options=options)
-
     return driver
 
 
@@ -66,7 +69,7 @@ def csv_writer(file_name: str, results_list_of_lists: list):
     with open('./' + file_name + '.csv', 'w', errors='ignore', newline="") as f:
         w = csv.writer(f)
         # column names
-        w.writerow(['name', 'company', 'job', 'experience', 'education', 'fos', 'location'])
+        w.writerow(['name', 'company', 'job', 'experience', 'education', 'fos', 'location', 'profile_link'])
         # results from scraper
         w.writerows(results_list_of_lists)
 

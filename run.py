@@ -4,12 +4,13 @@ from scripts.tools import get_account, csv_writer
 from scripts.cufflinx import Cufflinx
 import traceback
 
+
 def main():
     # main function that will execute the cufflinx scraper
     args = parse_args()
     if not args.search:
         sys.exit("[!] Enter search terms or pharse with -s option e.x. -s 'chris smith'")
-    # varaibles
+    # variables
     driver_path = './driver/chromedriver.exe'
     login_url = 'https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin'
     account = get_account()
@@ -17,7 +18,7 @@ def main():
     pass_word = account[1]
     # file_name = 'results.csv'
     # change this to whatever you want
-    # search_query = "site:linkedin.com/in/ AND 'Data Scientist'
+    # ex. search_query = "site:linkedin.com/in/ AND 'Data Scientist'
     # AND 'Washington D.C. Metro Area' AND 'Christopher Smith'"
     search_query = args.search
     if not search_query.startswith('site:linkedin.com/in/'):
