@@ -2,8 +2,9 @@ from time import sleep
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.action_chains import ActionChains
-from .tools import connect_driver, flatten
+from .tools import connect_driver, flatten, clean_text
 from tqdm import tqdm
+import traceback
 
 
 class Cufflinx:
@@ -15,16 +16,17 @@ class Cufflinx:
     """
     def __init__(self, path: str):
         # driver path for Chrome agent
-        if path:
-            self.driver = connect_driver(path)
-        else:
-            self.driver = connect_driver('../driver/chromedriver.exe')
+        self.driver = connect_driver(path)
 
-    def linkedin_login(self, username: str, password: str, url: str):
+    def linkedin_login(self, username: str, password: str):
+
+        # login url
+        url = 'https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin'
 
         print('Logging into Linkedin...')
         username = str(username)
         password = str(password)
+
         # username
         self.driver.get(url)
         username_box = self.driver.find_element_by_xpath('//div[@class="form__input--floating"]')
@@ -45,6 +47,7 @@ class Cufflinx:
         button.click()
 
         current_url = self.driver.current_url
+        # trying to bypass both unsupported browser and phone number checking web pages
         if 'https://www.linkedin.com/check/add-phone' in current_url:
             print('Asking for phone number...')
             skip_button = self.driver.find_element_by_xpath('//div[@class="secondary-action"]')
@@ -60,13 +63,10 @@ class Cufflinx:
             except NoSuchElementException:
                 continue_click = self.driver.find_element_by_css_selector('[title="continue anyway"]')
                 continue_click.click()
-            print('Ready to search!')
-        else:
-            print('Ready to search!')
+        print('Ready to search!')
         sleep(10)
 
-    def google_search_results(self, page_num: int, search: str) -> list:
-
+    def google_search(self, search: str):
         # search Google for the given search terms
         print('Google Search ...')
         search = str(search)
@@ -74,93 +74,135 @@ class Cufflinx:
         search_query = self.driver.find_element_by_name('q')
         search_query.send_keys(search)
         search_query.send_keys(u'\ue007')
-        sleep(3)
-        # get href links
-        pages = page_num
-        list_of_links = []
-        # collects links from each google page per the -p flag in the parser arguments
 
+    @staticmethod
+    def collect_linkedin_accounts(elements):
+        linkedin_accounts = [e.get_attribute("href") for e in elements
+                             if str(e.get_attribute("href")).startswith("https://www.linkedin.com/in/")]
+        return linkedin_accounts
+
+    def collect_search_results(self, pages: int) -> list:
+        # get href links
+        list_of_links = []
+
+        # collects links from each google page per the -p flag in the parser arguments
         for p in range(pages):
-            next_page = self.driver.find_elements_by_id('pnnext')
-            if len(next_page) > 1:
-                next_page = self.driver.find_elements_by_id('pnnext')[1]
-            else:
-                next_page = self.driver.find_elements_by_id('pnnext')[0]
-            elems = self.driver.find_elements_by_xpath("//a[@href]")
-            links = [x.get_attribute("href") for x in elems
-                     if str(x.get_attribute("href")).startswith("https://www.linkedin.com/in/")]
+            elements = self.driver.find_elements_by_xpath('//*[@id="rso"]/div/div/div/a')
+            links = self.collect_linkedin_accounts(elements)
             list_of_links.append(links)
-            sleep(3)
-            next_page.click()
+            if pages > 1:
+                next_page = self.driver.find_elements_by_id('pnnext')[0]
+                sleep(3)
+                next_page.click()
         list_of_links = flatten(list_of_links)
+
         # no duplicates in list using set
         return list(set(list_of_links))
 
-    def scrape_profiles(self, list_of_links: list) -> list:
+    def profile_data_grabber(self, url: str) -> dict:
         """
         TODO: More data to be collected ... positions, years, skills
+        :param url:
+        :return:
+        """
+        print('Scraping', str(url), '...')
+        self.driver.get(url)
+        current_link = self.driver.current_url
+        sleep(5)
+        element = self.driver.find_element_by_id("oc-background-section")
+        actions = ActionChains(self.driver)
+        try:
+            more_exp = self.driver.find_element_by_class_name('pv-experience-section__see-more')
+            actions.move_to_element(more_exp).perform()
+            print('Showing all exp...')
+            more_exp.find_element_by_class_name('pv-profile-section__see-more-inline').click()
+            sleep(2)
+        except NoSuchElementException:
+            print('No extra exp to show...')
+            pass
+        actions.move_to_element(element).perform()
+        print('Rendering Java for', url, '...')
+        sleep(5)
+        soup = BeautifulSoup(self.driver.page_source, features="lxml")
+
+        try:
+            # added clean_text, names often have index? numbers next to them in the html
+            name = clean_text(soup.find('title').text.split('|')[0].strip())
+        except IndexError:
+            name = 'No data'
+        try:
+            company = soup.findAll("span", {
+                "class": "text-align-left ml2 t-14 t-black t-bold full-width "
+                         "lt-line-clamp lt-line-clamp--multi-line ember-view"})[0].text.strip()
+        except IndexError:
+            company = 'No data'
+        try:
+            job = soup.findAll("h2", {"class": "mt1 t-18 t-black t-normal break-words"})[0].text.strip()
+        except IndexError:
+            job = 'No data'
+        try:
+            experience = [e.text.strip() for e in
+                          soup.findAll("p", {"class": "pv-entity__secondary-title t-14 t-black t-normal"})]
+            if len(experience) == 0:
+                self.driver.execute_script("window.scrollTo(0, 500)")
+                print('Looking for exp...')
+                sleep(3)
+                experience = [e.text.strip() for e in
+                              soup.findAll("p", {"class": "pv-entity__secondary-title t-14 t-black t-normal"})]
+        except IndexError:
+            experience = ['No data']
+        try:
+            education = [c.text.strip() for c in
+                         soup.findAll('h3', {"class": "pv-entity__school-name t-16 t-black t-bold"})]
+        except IndexError:
+            education = ["No data"]
+        try:
+            fos = [f.text.strip() for f in soup.findAll('span', {"class": "pv-entity__comma-item"})]
+        except IndexError:
+            fos = ['No data']
+        try:
+            loc = soup.findAll("li", {"class": "t-16 t-black t-normal inline-block"})[0].text.strip()
+        except IndexError:
+            loc = 'No data'
+        try:
+            skills = [s.text.strip() for s in
+                      soup.findAll("span", {"class": "pv-skill-category-entity__name-text t-16 t-black t-bold"})]
+        except NoSuchElementException:
+            skills = "No data"
+        except IndexError:
+            skills = "No data"
+
+        # data returned in dict() format
+        entry = {
+            'name': name,
+            'company': company,
+            'job': job,
+            'experience': experience,
+            'education': education,
+            'fos': fos,
+            'loc': loc,
+            'skills': skills,
+            'current_link': current_link
+        }
+        print(entry)
+
+        return entry
+
+    def scrape_profiles(self, list_of_links: list) -> list:
+        """
         :param list_of_links:
         :return:
         """
         print('Scraping profiles ...')
         results = []
-        # this is where the magic happens ...
         for url in tqdm(list_of_links):
-            print('Scraping', str(url), '...')
-            self.driver.get(url)
-            current_link = self.driver.current_url
-            sleep(5)
-            element = self.driver.find_element_by_id("oc-background-section")
-            actions = ActionChains(self.driver)
             try:
-                more_exp = self.driver.find_element_by_class_name('pv-experience-section__see-more')
-                actions.move_to_element(more_exp).perform()
-                print('Showing all exp...')
-                more_exp.find_element_by_class_name('pv-profile-section__see-more-inline').click()
-                sleep(2)
-            except NoSuchElementException:
-                print('No extra exp to show...')
+                entry = self.profile_data_grabber(url)
+                results.append(entry)
+            except Exception:
+                # passing so we won't lose data if error hits
+                traceback.format_exc()
                 pass
-            actions.move_to_element(element).perform()
-            print('Rendering Java for', url, '...')
-            sleep(5)
-            soup = BeautifulSoup(self.driver.page_source, features="lxml")
-            try:
-                name = soup.find('title').text.split('|')[0].strip()
-            except IndexError:
-                name = 'No data'
-            try:
-                company = soup.findAll("span", {"class": "text-align-left ml2 t-14 t-black t-bold full-width lt-line-clamp lt-line-clamp--multi-line ember-view"})[0].text.strip()
-            except IndexError:
-                company = 'No data'
-            try:
-                job = soup.findAll("h2", {"class": "mt1 t-18 t-black t-normal break-words"})[0].text.strip()
-            except IndexError:
-                job = 'No data'
-            try:
-                experience = [e.text.strip() for e in soup.findAll("p", {"class": "pv-entity__secondary-title t-14 t-black t-normal"})]
-                if len(experience) == 0:
-                    self.driver.execute_script("window.scrollTo(0, 500)")
-                    print('Looking for exp...')
-                    sleep(3)
-                    experience = [e.text.strip() for e in soup.findAll("p", {"class": "pv-entity__secondary-title t-14 t-black t-normal"})]
-            except IndexError:
-                experience = ['No data']
-            try:
-                education = [c.text.strip() for c in soup.findAll('h3', {"class": "pv-entity__school-name t-16 t-black t-bold"})]
-            except IndexError:
-                education = ["No data"]
-            try:
-                fos = [f.text.strip() for f in soup.findAll('span', {"class": "pv-entity__comma-item"})]
-            except IndexError:
-                fos = ['No data']
-            try:
-                loc = soup.findAll("li", {"class": "t-16 t-black t-normal inline-block"})[0].text.strip()
-            except IndexError:
-                loc = 'No data'
-            entry = [name, company, job, experience, education, fos, loc, current_link]
-            results.append(entry)
-
         self.driver.close()
 
         return results

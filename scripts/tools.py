@@ -3,6 +3,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import csv
 import collections
+import pandas as pd
+import re
 
 
 def get_ua():
@@ -43,18 +45,6 @@ def get_ua():
     return ua
 
 
-def get_account():
-    """
-    TODO: Clean up and eventually remove this
-    :return:
-    """
-    account_list = [
-        ['chrissmith700@gmail.com', 'Hq4_7!lowbar'],  # add accounts here for login needed for
-    ]
-    account = random.choice(account_list)
-    return account
-
-
 def connect_driver(path: str) -> webdriver.Chrome:
     # connects selenium driver based on path provided
     useragent = get_ua()
@@ -72,6 +62,22 @@ def csv_writer(file_name: str, results_list_of_lists: list):
         w.writerow(['name', 'company', 'job', 'experience', 'education', 'fos', 'location', 'profile_link'])
         # results from scraper
         w.writerows(results_list_of_lists)
+
+
+def df_to_csv(file_name: str, results: list):
+    """
+    :param file_name: name of file being saved
+    :param results: list of dict objects
+    :return:
+    """
+    df = pd.DataFrame(results)
+    df.to_csv('./'+file_name+'.csv', index=False)
+
+
+def clean_text(text: str) -> str:
+    regex = re.compile('[^A-Za-z0-9 ]+')
+    cleaned_text = regex.sub('', text)
+    return cleaned_text
 
 
 def flatten(nested_list: list):
