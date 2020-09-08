@@ -7,7 +7,7 @@ def get_account():
     :return:
     """
     account_list = [
-        ['', ''],  # add accounts here for login needed for
+        ['', ''],  # add accounts here for linkedin login
     ]
     account = random.choice(account_list)
     return account
