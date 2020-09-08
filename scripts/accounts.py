@@ -1,10 +1,10 @@
 import random
 
 
-def get_account():
+def get_account() -> list:
     """
-    TODO: Clean up and eventually remove this
-    :return:
+    Randomly selects linkedin creds if the user has multiple account for educational purposes ... ;)
+    :return: account selection from
     """
     account_list = [
         ['', ''],  # add accounts here for linkedin login
