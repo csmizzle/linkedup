@@ -39,7 +39,7 @@ def main():
         df_to_csv(filename, results)
         print('Done, check the results folder.')
     except IndexError:
-        traceback.format_exc()
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

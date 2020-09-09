@@ -91,9 +91,7 @@ class Cufflinx:
             links = self.collect_linkedin_accounts(elements)
             list_of_links.append(links)
             if pages > 1:
-                next_page = self.driver.find_elements_by_id('pnnext')[0]
-                sleep(3)
-                next_page.click()
+                self.driver.find_element_by_id('pnnext').click()
         list_of_links = flatten(list_of_links)
 
         # no duplicates in list using set
@@ -201,7 +199,7 @@ class Cufflinx:
                 results.append(entry)
             except Exception:
                 # passing so we won't lose data if error hits
-                traceback.format_exc()
+                traceback.print_exc()
                 pass
         self.driver.close()
 
