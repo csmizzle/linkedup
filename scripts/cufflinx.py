@@ -23,7 +23,7 @@ class Cufflinx:
         # login url
         url = 'https://www.linkedin.com/login?fromSignIn=true&trk=guest_homepage-basic_nav-header-signin'
 
-        print('Logging into Linkedin...')
+        print('[!] Logging into Linkedin...')
         username = str(username)
         password = str(password)
 
@@ -52,10 +52,10 @@ class Cufflinx:
             print('Asking for phone number...')
             skip_button = self.driver.find_element_by_xpath('//div[@class="secondary-action"]')
             skip_button.click()
-            print('Skipped that...')
-            print('Ready to search!')
+            print('[!] Skipped that...')
+            print('[!] Ready to search!')
         elif current_url == 'https://www.linkedin.com/error_pages/unsupported-browser.html':
-            print('Unsupported Browser ... going to continue anyways')
+            print('[!] Unsupported Browser ... going to continue anyways')
             try:
                 allow = self.driver.find_element_by_xpath('//a[@href="https://www.linkedin.com/?allowUnsupportedBrowser=true"]')
                 allow_link = allow.get_attribute("href")
@@ -68,7 +68,7 @@ class Cufflinx:
 
     def google_search(self, search: str):
         # search Google for the given search terms
-        print('Google Search ...')
+        print('[!] Google Search ...')
         search = str(search)
         self.driver.get('https://www.google.com')
         search_query = self.driver.find_element_by_name('q')
@@ -81,10 +81,54 @@ class Cufflinx:
                              if str(e.get_attribute("href")).startswith("https://www.linkedin.com/in/")]
         return linkedin_accounts
 
+    def bottom_of_page(self):
+        # get size of page prior to scrolling
+        len_prior = self.driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
+        # scroll to execute any java page extension
+        self.driver.execute_script('window.scrollTo(0,document.body.scrollHeight)')
+        sleep(0.5)
+        # get len after possibly generating more of the page
+        len_after = self.driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
+        if len_after != len_prior:
+            # recursively call function if lengths are different; allows for all employees to be presented
+            self.bottom_of_page()
+        else:
+            print('[!] Bottom of page reached ...')
+
+    def company_search(self, company_name: str):
+        # click on search bar
+        search_bar = self.driver.find_element_by_xpath('//*[@placeholder="Search"]')
+        search_bar.click()
+        # send company into search box and search
+        print('[!] Searching for', company_name)
+        search_bar.send_keys(company_name)
+        search_bar.send_keys(u'\ue007')
+        sleep(2)
+        # clicks on first company returned
+        self.driver.find_element_by_class_name('search-result__title').click()
+
+    def get_employees(self) -> list:
+        # clicks on the employees card
+        company_cards = self.driver.find_elements_by_class_name('t-14')
+        print('[!] Getting employees ...')
+        sleep(5)
+        print(company_cards)
+        employee_card = [c for c in company_cards if 'people' in str(c.get_attribute('href'))]
+        print(employee_card)
+        employee_card.click()
+        # scroll to the bottom of the page and render
+        self.bottom_of_page()
+        # find employee links
+        employee_links = self.driver.find_elements_by_xpath('//*[@data-control-name="people_profile_card_name_link"]')
+        # collect hrefs from links
+        employee_hrefs = [e.get_attribute('href') for e in employee_links]
+        return employee_hrefs
+
     def collect_search_results(self, pages: int) -> list:
         # get href links
         list_of_links = []
-
         # collects links from each google page per the -p flag in the parser arguments
         for p in range(pages):
             elements = self.driver.find_elements_by_xpath('//*[@id="rso"]/div/div/div/a')
@@ -93,7 +137,6 @@ class Cufflinx:
             if pages > 1:
                 self.driver.find_element_by_id('pnnext').click()
         list_of_links = flatten(list_of_links)
-
         # no duplicates in list using set
         return list(set(list_of_links))
 
@@ -103,7 +146,7 @@ class Cufflinx:
         :param url:
         :return:
         """
-        print('Scraping', str(url), '...')
+        print('[!] Scraping', str(url), '...')
         self.driver.get(url)
         current_link = self.driver.current_url
         sleep(5)
@@ -112,14 +155,14 @@ class Cufflinx:
         try:
             more_exp = self.driver.find_element_by_class_name('pv-experience-section__see-more')
             actions.move_to_element(more_exp).perform()
-            print('Showing all exp...')
+            print('[!] Showing all exp...')
             more_exp.find_element_by_class_name('pv-profile-section__see-more-inline').click()
             sleep(2)
         except NoSuchElementException:
-            print('No extra exp to show...')
+            print('[!] No extra exp to show...')
             pass
         actions.move_to_element(element).perform()
-        print('Rendering Java for', url, '...')
+        print('[!] Rendering Java for', url, '...')
         sleep(5)
         soup = BeautifulSoup(self.driver.page_source, features="lxml")
 
@@ -169,7 +212,6 @@ class Cufflinx:
             skills = "No data"
         except IndexError:
             skills = "No data"
-
         # data returned in dict() format
         entry = {
             'name': name,
@@ -182,8 +224,6 @@ class Cufflinx:
             'skills': skills,
             'current_link': current_link
         }
-        print(entry)
-
         return entry
 
     def scrape_profiles(self, list_of_links: list) -> list:
@@ -191,7 +231,7 @@ class Cufflinx:
         :param list_of_links:
         :return:
         """
-        print('Scraping profiles ...')
+        print('[!] Scraping profiles ...')
         results = []
         for url in tqdm(list_of_links):
             try:

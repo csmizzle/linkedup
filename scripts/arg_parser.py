@@ -5,10 +5,13 @@ import time
 def parse_args():
     # arguments that can be used to tailor searches and depth of searches
     parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--company',
+                        help='Use this flag to collect all employee profiles for a specific company', default='')
     parser.add_argument('-s', '--search',
                         help='Enter Google boolean search e.x. "site:linkedin.com/in/ '
                              'AND *single quote*Data Scientist*single quote* AND *single quote*Washington D.C. '
-                             'Metro Area*single quote* AND *single quote*Christopher Smith*single quote*"')
+                             'Metro Area*single quote* AND *single quote*Christopher Smith*single quote*"',
+                        default='')
     parser.add_argument('-p', '--pages',
                         default=1, help='Enter number of pages to be searched')
     parser.add_argument('-f', '--file_name',
